@@ -1,0 +1,84 @@
+name: Deploy Hymora Templates to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build all 10 apps
+        run: |
+          mkdir -p public
+          APPS="medical-clinic real-estate interior-design logistics manufacturing export law-firm coaching premium-salon wedding-venue"
+          for app in $APPS; do
+            echo "==> Building $app"
+            cd "$app"
+            npm install
+            npm run build
+            # copy built static site into public/<app>
+            cp -r out/* "../public/$app" 2>/dev/null || mkdir -p "../public/$app" && cp -r out/. "../public/$app/"
+            cd ..
+          done
+
+      - name: Root menu (index.html linking all 10)
+        run: |
+          cat > public/index.html <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en"><head><meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Hymora Studios — Templates</title>
+          <style>body{font-family:system-ui,Segoe UI,Arial;background:#0b0c10;color:#eef0f6;margin:0;padding:48px 20px;text-align:center}
+          h1{font-size:34px;margin-bottom:4px}.sub{color:#9aa2b4;margin-bottom:32px}
+          .grid{max-width:880px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+          a{display:block;padding:18px 20px;background:#16181f;border:1px solid #262a36;border-radius:14px;color:#eef0f6;text-decoration:none;font-weight:600;transition:.2s}
+          a:hover{border-color:#7c5cff;transform:translateY(-2px)}@media(max-width:640px){.grid{grid-template-columns:1fr}}</style></head>
+          <body><h1>Hymora Studios</h1><div class="sub">10 ready-to-deploy website templates — Chennai businesses</div>
+          <div class="grid">
+          <a href="medical-clinic/">🩺 Medical Clinic</a>
+          <a href="real-estate/">🏢 Real Estate</a>
+          <a href="interior-design/">🛋️ Interior Design</a>
+          <a href="logistics/">🚚 Logistics</a>
+          <a href="manufacturing/">⚙️ Manufacturing</a>
+          <a href="export/">🌐 Export</a>
+          <a href="law-firm/">⚖️ Law Firm</a>
+          <a href="coaching/">🎯 Coaching</a>
+          <a href="premium-salon/">💇 Premium Salon</a>
+          <a href="wedding-venue/">💍 Wedding Venue</a>
+          </div></body></html>
+          HTML
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
